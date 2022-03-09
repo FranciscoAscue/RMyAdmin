@@ -1,0 +1,26 @@
+{
+    "id": "30C9A142",
+    "path": "~/Documents/Git/RMyAdmin/R/data-mysql.R",
+    "project_path": "R/data-mysql.R",
+    "type": "r_source",
+    "hash": "0",
+    "contents": "",
+    "dirty": false,
+    "created": 1646173668273.0,
+    "source_on_save": false,
+    "relative_order": 2,
+    "properties": {
+        "source_window_id": "",
+        "Source": "Source",
+        "cursorPosition": "25,31",
+        "scrollLine": "0"
+    },
+    "folds": "",
+    "lastKnownWriteTime": 1646791496,
+    "encoding": "UTF-8",
+    "collab_server": "",
+    "source_window": "",
+    "last_content_update": 1646791496741,
+    "read_only": false,
+    "read_only_alternatives": []
+}

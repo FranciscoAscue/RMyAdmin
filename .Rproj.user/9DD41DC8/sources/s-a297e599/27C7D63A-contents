@@ -1,0 +1,5 @@
+a <- "A"
+b <- "B"
+
+
+data.frame(NETLAB = a, OFICIO = b, CT = 0, CT2 = "NULL", FECHA_TM = "2022-01-01", MOTIVO = "NULL", CODIGO = "NULL")
