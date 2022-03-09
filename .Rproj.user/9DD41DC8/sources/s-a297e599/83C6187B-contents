@@ -132,13 +132,28 @@ server <- function(input, output, session) {
   shiny::observeEvent(input$current_id, {
     shiny::req(!is.null(input$current_id) &
                  stringr::str_detect(input$current_id,pattern = "delete"))
+    #delet_row <- which(stringr::str_detect(inputData()$ACCIONES, pattern = paste0("\\b", input$current_id, "\\b") ))
+    #sql_id <- inputData()[delet_row, ][["NETLAB"]] 
+    shiny::modalDialog(
+      title = h3("Se borrara permanentemente los datos!!"),
+       div(
+        shiny::actionButton(inputId = "final_delete",
+                            label   = "Confirmar",
+                            icon = shiny::icon("trash"),
+                            class = "btn-danger")
+        
+      )
+    ) %>% shiny::showModal()
+  
+  })
+  
+  shiny::observeEvent(input$final_delete, {
+    shiny::req(!is.null(input$current_id) &
+                 stringr::str_detect(input$current_id,pattern = "delete"))
     delet_row <- which(stringr::str_detect(inputData()$ACCIONES, pattern = paste0("\\b", input$current_id, "\\b") ))
     sql_id <- inputData()[delet_row, ][["NETLAB"]] 
-    query <- paste0("DELETE FROM `metadata2` WHERE `metadata2`.`NETLAB` = \'",sql_id,"\'")
+    query <- paste0("DELETE FROM `metadata` WHERE `metadata`.`NETLAB` = \'",sql_id,"\'")
     delete_sql(query)
-    tmp <- input$Oficio 
-    updateTextInput(session, "Oficio", value = NA)
-    updateTextInput(session, "Oficio", value = tmp)
   })
   
   shiny::observeEvent(input$current_id, {
@@ -220,6 +235,13 @@ server <- function(input, output, session) {
   
   shiny::observeEvent(input$dismiss_modal, {
     shiny::removeModal()
+  })
+  
+  shiny::observeEvent(input$final_delete, {
+    shiny::removeModal()
+    tmp <- input$Oficio 
+    updateTextInput(session, "Oficio", value = NA)
+    updateTextInput(session, "Oficio", value = tmp)
   })
   
   shiny::observeEvent(input$final_edit, {

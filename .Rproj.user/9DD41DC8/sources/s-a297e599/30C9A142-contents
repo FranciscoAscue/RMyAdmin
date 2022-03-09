@@ -37,6 +37,7 @@ metadataOrder <- function(corrida){
                    host = 'localhost',
                    dbname = 'seqcoviddb') ### cambiar a seqcoviddb
   query = paste0("SELECT * FROM `metadata` WHERE `CORRIDA` = ",corrida," ORDER BY `metadata`.`PLACA` ASC;")
+  dbSendQuery(con, "SET NAMES utf8mb4;")
   rs = dbSendQuery(con, query);
   df = fetch(rs, -1);
   dbDisconnect(con)
@@ -107,8 +108,8 @@ metadataSendquery <- function(netlab, oficio){
                    user = 'root',
                    password = 'maq12345',
                    host = 'localhost',
-                   dbname = 'ejemplo')
-  query = paste0("INSERT INTO `metadata2` (`NETLAB`, `OFICIO`, `CT`, `CT2`, `FECHA_TM`, `REGION`, `PROCEDENCIA`, `PROVINCIA`, `DISTRITO`, `APELLIDO_NOMBRE`, `DNI_CE`, `EDAD`, `SEXO`, `VACUNADO`, `MARCA_PRIMERAS_DOSIS`, `1DOSIS`, `2DOSIS`, `MARCA _3DOSIS`, `3DOSIS`, `HOSPITALIZACION`, `MOTIVO`, `FALLECIDO`, `NUMERACION_PLACA`, `PLACA`, `CORRIDA`, `RECEPCIONADA`, `CODIGO`, `VERIFICADO`, `FECHA_INGRESO_BASE`) VALUES ('",
+                   dbname = 'seqcoviddb')
+  query = paste0("INSERT INTO `metadata` (`NETLAB`, `OFICIO`, `CT`, `CT2`, `FECHA_TM`, `REGION`, `PROCEDENCIA`, `PROVINCIA`, `DISTRITO`, `APELLIDO_NOMBRE`, `DNI_CE`, `EDAD`, `SEXO`, `VACUNADO`, `MARCA_PRIMERAS_DOSIS`, `1DOSIS`, `2DOSIS`, `MARCA _3DOSIS`, `3DOSIS`, `HOSPITALIZACION`, `MOTIVO`, `FALLECIDO`, `NUMERACION_PLACA`, `PLACA`, `CORRIDA`, `RECEPCIONADA`, `CODIGO`, `VERIFICADO`, `FECHA_INGRESO_BASE`) VALUES ('",
                  netlab,"','",oficio,"', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, CURRENT_TIMESTAMP);")
   rs = dbSendQuery(con, query);
   #df = fetch(rs, -1);
@@ -123,8 +124,8 @@ metadaupdate <- function(oficio){
                    user = 'root',
                    password = 'maq12345',
                    host = 'localhost',
-                   dbname = 'ejemplo')
-  query = paste0("SELECT NETLAB, OFICIO, CT, CT2, FECHA_TM, MOTIVO FROM `metadata2`  WHERE `OFICIO` = '",oficio,"' ORDER BY `metadata2`.`FECHA_TM` DESC;")
+                   dbname = 'seqcoviddb')
+  query = paste0("SELECT NETLAB, OFICIO, CT, CT2, FECHA_TM, MOTIVO FROM `metadata`  WHERE `OFICIO` = '",oficio,"' ORDER BY `metadata`.`FECHA_TM` DESC;")
   rs = dbSendQuery(con, query);
   df = fetch(rs, -1);
   dbDisconnect(con)
@@ -137,8 +138,8 @@ metadadelete <- function(oficio){
                    user = 'root',
                    password = 'maq12345',
                    host = 'localhost',
-                   dbname = 'ejemplo')
-  query = paste0("SELECT NETLAB, OFICIO, CT, CT2, FECHA_TM, MOTIVO, CODIGO  FROM `metadata2`  WHERE `OFICIO` = '",oficio,"' ORDER BY `metadata2`.`FECHA_INGRESO_BASE` DESC;")
+                   dbname = 'seqcoviddb')
+  query = paste0("SELECT NETLAB, OFICIO, CT, CT2, FECHA_TM, MOTIVO, CODIGO  FROM `metadata`  WHERE `OFICIO` = '",oficio,"' ORDER BY `metadata`.`FECHA_INGRESO_BASE` DESC;")
   rs = dbSendQuery(con, query);
   df = fetch(rs, -1);
   dbDisconnect(con)
@@ -152,8 +153,8 @@ delete_sql <- function(query){
                    user = 'root',
                    password = 'maq12345',
                    host = 'localhost',
-                   dbname = 'ejemplo')
-  #query = paste0("SELECT NETLAB, OFICIO, CT, CT2, FECHA_TM, MOTIVO, CODIGO  FROM `metadata2`  WHERE `OFICIO` = '",oficio,"' ORDER BY `metadata2`.`FECHA_TM` DESC;")
+                   dbname = 'seqcoviddb')
+  #query = paste0("SELECT NETLAB, OFICIO, CT, CT2, FECHA_TM, MOTIVO, CODIGO  FROM `metadata`  WHERE `OFICIO` = '",oficio,"' ORDER BY `metadata`.`FECHA_TM` DESC;")
   rs = dbSendQuery(con, query);
   df = fetch(rs, -1);
   dbDisconnect(con)
@@ -180,11 +181,11 @@ update_sql <- function(sql_id, ct, ct2, fecha_tm, check, motivo){
                    user = 'root',
                    password = 'maq12345',
                    host = 'localhost',
-                   dbname = 'ejemplo')
-  query <- paste0("UPDATE `metadata2` SET `CT` = '",
+                   dbname = 'seqcoviddb')
+  query <- paste0("UPDATE `metadata` SET `CT` = '",
                   ct,"', `CT2` = '",ct2,"', `FECHA_TM` = '",
                   fecha_tm,"', `MOTIVO` = '",motivo,
-                  "' WHERE `metadata2`.`NETLAB` = \'",sql_id,"\'")
+                  "' WHERE `metadata`.`NETLAB` = \'",sql_id,"\'")
   query <- gsub("'NULL'", "NULL", query, fixed = TRUE)
   rs = dbSendQuery(con, query);
   df = fetch(rs, -1);
