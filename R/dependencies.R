@@ -39,6 +39,5 @@ library(writexl)
 library(shinythemes)
 library(stringr)
 library(readr)
-library(shinyauthr)
 ################################################################################
 
