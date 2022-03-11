@@ -63,6 +63,7 @@ server <- function(input, output, session) {
     # Unimos en un solo data frame para mejor manejo de la data 
     datamerge <- merge(x = df_a1, y = df_b1, by = "NETLAB", all = TRUE)
     datamerge$COVERAGE <- gsub("(coverage)(amplicons)", "x", datamerge$COVERAGE, fixed = T )
+    datamerge <- datamerge %>% filter(!is.na(NUMERACION_PLACA))
     datamerge
   })
   
@@ -83,7 +84,21 @@ server <- function(input, output, session) {
     data
   
   })
+  
+  corrida <- reactive({
+    data <- metadataOrder(input$corrA)
+    data$FECHA_TM <- as.Date(data$FECHA_TM)
+    data
+  })
   ############################################################################################################################################################
+  
+
+  output$point <- renderPlotly({
+    
+    plot_ly(corrida(), x= ~FECHA_TM, y = ~CT, color = ~MOTIVO, text= ~NETLAB, type = 'scatter', mode = "markers")
+  
+  })
+  
   
   output$tablemysql <- DT::renderDataTable(mysql_explore(),
                                            options = list(scrollX = TRUE),
