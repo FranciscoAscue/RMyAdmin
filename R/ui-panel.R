@@ -45,7 +45,7 @@ Analysis <- tabPanel(
                     ),
   
   conditionalPanel( condition = "input.Tabs == 'seqM'",
-                    column(5,style = "background-color:#DAF5E1;",
+                    column(8,style = "background-color:#DAF5E1;",
                            h3("Resumen de secuenciados por Mes"),
                            column(3, dateInput("SeqMesI", label = "Fecha Inicio", language = "es",value = "2021-12-01" , min = "2020-01-01", max = "2022-03-28")),
                            column(3, dateInput("SeqMesF", label = "Fecha Fin", language = "es", min = "2020-01-01", max = "2022-03-28")),
@@ -54,7 +54,7 @@ Analysis <- tabPanel(
   ),
   
   conditionalPanel( condition = "input.Tabs == 'rechO'",
-                    column(5, style = "background-color:#DAEEF5;",
+                    column(8, style = "background-color:#DAEEF5;",
                            h3("Rechazados por Oficio"),
                            textInput(inputId = "oficio",
                                      label = "Ingrese oficio",
@@ -84,6 +84,7 @@ Analysis <- tabPanel(
 
 
 UploadData <- tabPanel("INGRESO DE DATOS",
+                       useShinyjs(),
                        column(3, 
                               h3(p(style="color:black;text-align:left", 
                                    tags$img(src="https://raw.githubusercontent.com/rstudio/hex-stickers/master/thumbs/shiny.png",width="60px",height="60px"),

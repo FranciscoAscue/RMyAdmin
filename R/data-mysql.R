@@ -125,7 +125,7 @@ metadaupdate <- function(oficio){
                    password = 'maq12345',
                    host = 'localhost',
                    dbname = 'seqcoviddb')
-  query = paste0("SELECT NETLAB, OFICIO, CT, CT2, FECHA_TM, MOTIVO FROM `metadata`  WHERE `OFICIO` = '",oficio,"' ORDER BY `metadata`.`FECHA_TM` DESC;")
+  query = paste0("SELECT NETLAB, OFICIO, CT, CT2, FECHA_TM, MOTIVO FROM `metadata`  WHERE `OFICIO` = '",oficio,"' ORDER BY `metadata`.`FECHA_INGRESO_BASE` ASC;")
   rs = dbSendQuery(con, query);
   df = fetch(rs, -1);
   dbDisconnect(con)

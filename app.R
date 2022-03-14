@@ -17,7 +17,7 @@ create_btns <- function(x) {
 
 
 
-ui <- navbarPage(theme = shinytheme("flatly"), "RMyAdmin", id="nav", DataExp, Analysis, UploadData)
+ui <- navbarPage(theme = shinytheme("flatly"), "RMyAdmin-Ingreso", id="nav", UploadData, DataExp, Analysis )
 
 
 server <- function(input, output, session) {
@@ -124,6 +124,9 @@ server <- function(input, output, session) {
     tryCatch({
       metadataSendquery(inputSQL()$nt,inputSQL()$of)
       updateTextInput(session, "Netlab", value = NA)
+      tmp <- input$Oficio 
+      updateTextInput(session, "Oficio", value = NA)
+      updateTextInput(session, "Oficio", value = tmp)
       output$SqlInput <- DT::renderDataTable(inputData(), extensions = 'Buttons',
                                                options = list( dom = 'Blfrtip', buttons = c('copy', 'excel')),
                                                rownames = FALSE, server = FALSE, escape = FALSE, selection = 'none')
@@ -182,7 +185,7 @@ server <- function(input, output, session) {
     motivo <- inputData()[edit_row, ][["MOTIVO"]]
     
     shiny::modalDialog(
-      title = "Agregar metadatos",
+      title = h3(sql_id),
       column(12,
       column(6,
           numericInput(inputId = "ct",
@@ -198,12 +201,12 @@ server <- function(input, output, session) {
       
       column(12, 
       column(6,
-          dateInput(inputId = "fecha_tm",
+          disabled(dateInput(inputId = "fecha_tm",
                     label = "Fecha de toma de muestra",
                     language = "es", value = fecha_tm , min = "2020-01-01", max = "2022-05-28"
-                    )),
+                    ))),
       column(6, icon("radiation"), icon("bomb"),"-NULL-", 
-          checkboxInput("checkbox", label = "Fecha Null", value = FALSE)),
+          checkboxInput("checkbox", label = "Fecha Null", value = TRUE)),
       ),
       
       column(12,
@@ -234,8 +237,11 @@ server <- function(input, output, session) {
     ) %>% shiny::showModal()
     
   })
-  
-  
+
+  observeEvent(input$checkbox, {
+    if(input$checkbox == FALSE)
+      enable("fecha_tm")
+  })
   
   
   shiny::observeEvent(input$final_edit, {
@@ -281,6 +287,6 @@ server <- function(input, output, session) {
   
   
 }
+  shinyApp(ui = ui, server = server)
 
 # Run the application 
-shinyApp(ui = ui, server = server)
