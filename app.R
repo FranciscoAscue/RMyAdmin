@@ -6,65 +6,52 @@ source("config.R", local = TRUE)
 
 create_btns <- function(x) {
   x %>% purrr::map_chr(~
-                     paste0(
-                       '<div class = "btn-group">
+                         paste0(
+                           '<div class = "btn-group">
                    <button class="btn btn-default action-button btn-info action_button" id="edit_',
-                       .x, '" type="button" onclick=get_id(this.id)><i class="fas fa-edit"></i></button>
+                           .x, '" type="button" onclick=get_id(this.id)><i class="fas fa-edit"></i></button>
                    <button class="btn btn-default action-button btn-danger action_button" id="delete_',
-                       .x, '" type="button" onclick=get_id(this.id)><i class="fa fa-trash-alt"></i></button></div>'
-                     ))
+                           .x, '" type="button" onclick=get_id(this.id)><i class="fa fa-trash-alt"></i></button></div>'
+                         ))
 }
 
-
-
-ui <- navbarPage(theme = shinytheme("flatly"), "RMyAdmin-Ingreso", id="nav", UploadData, DataExp, Analysis )
+ui <- fluidPage( title = "Administrador",  
+                 div(class = "pull-right", shinyauthr::logoutUI(id = "logout")),
+                 
+                 # login section
+                 shinyauthr::loginUI(id = "login", title = h3(icon("server"),icon("atom"),"Ingreso de Datos COVID"), 
+                                     user_title = "Usuario", pass_title = "Contraseña"),
+                 uiOutput("Page") )
 
 
 server <- function(input, output, session) {
   
+  credentials <- shinyauthr::loginServer(
+    id = "login",
+    data = user_base,
+    user_col = user,
+    pwd_col = password,
+    sodium_hashed = TRUE,
+    log_out = reactive(logout_init())
+  )
+  
+  # Logout to hide
+  logout_init <- shinyauthr::logoutServer(
+    id = "logout",
+    active = reactive(credentials()$user_auth)
+  )
+  
+  
   mysql_explore <- reactive({
-    data <- metadata_sql(corrida = input$corrida, placa = input$placa)
+    req(input$Actualizar | TRUE)
+    data <- metadata_sql(oficio = input$Soficio)
     data # <- data[,-c(6, 20, 22,24,25,29)]
   })
   
-  mysql_order <- reactive({
-    
-    datos <- metadataOrder(corrida = input$corrida)
-    datos <- as.data.frame(datos)
-    DD <- datos[order(datos$NUMERACION_PLACA),] %>% arrange(PLACA)
-    DD <- DD %>% mutate_if(is.character, trimws)
-  })
-  
-  dataOrder <- reactive({
-    
-    datos <- metadataRechazado(input$oficio)
-    #metadata <- data[order(metadata$CORRIDA, metadata$PLACA), ]
-    datos
-    
-  })
-  
-  seqMes <- reactive({
-    datos <- metadataSeq(input$SeqMesI,input$SeqMesF)
-    datos <- as.data.frame(table(datos$PROCEDENCIA))
-    colnames(datos) <- c("PROCEDENCIA","CANTIDAD")
-    datos$PORCENTAJE <- round((datos$CANTIDAD / sum(datos$CANTIDAD))*100, digits = 3)
-    datos
-  })
-  
-  coverage <- reactive({
-    
-    # Extraemos las varialbles que nos interesan de las bases de datos por corrida 
-    df_a <- metadaquery(input$corrB, input$corrA)
-    df_b <- metadataS("nextrain2gisaid",input$corrA)
-    
-    df_a1 <- df_a[,c("NETLAB","NUMERACION_PLACA")]
-    df_b1 <- df_b[,c("NETLAB","LINAGES","COVERAGE","N_PERCENTAGE")]
-    
-    # Unimos en un solo data frame para mejor manejo de la data 
-    datamerge <- merge(x = df_a1, y = df_b1, by = "NETLAB", all = TRUE)
-    datamerge$COVERAGE <- gsub("(coverage)(amplicons)", "x", datamerge$COVERAGE, fixed = T )
-    datamerge <- datamerge %>% filter(!is.na(NUMERACION_PLACA))
-    datamerge
+  asignados <- reactive({
+    req(input$Actualizar | TRUE)
+    data <- metadataOrder(input$Corrida, input$Placa, TRUE)
+    data
   })
   
   inputSQL <- reactive({
@@ -76,60 +63,51 @@ server <- function(input, output, session) {
   })
   
   inputData <- reactive({
-    req(input$Guardar)
+    req(input$Guardar | input$Buscar)
     data <- metadaupdate(input$Oficio)
     x <- create_btns(data$NETLAB)
     data <- data %>%
-    dplyr::bind_cols(tibble("ACCIONES" = x))
-    data
-  
-  })
-  
-  corrida <- reactive({
-    data <- metadataOrder(input$corrA)
-    data$FECHA_TM <- as.Date(data$FECHA_TM)
+      dplyr::bind_cols(tibble("ACCIONES" = x))
     data
   })
+  
+  
   ############################################################################################################################################################
-  
-
-  output$point <- renderPlotly({
-    
-    plot_ly(corrida(), x= ~FECHA_TM, y = ~CT, color = ~MOTIVO, text= ~NETLAB, type = 'scatter', mode = "markers")
-  
-  })
-  
   
   output$tablemysql <- DT::renderDataTable(mysql_explore(),
                                            options = list(scrollX = TRUE),
-                                           rownames = FALSE)
+                                           rownames = FALSE, server = FALSE, escape = FALSE, selection = 'none')
   
-  output$tablemysql22 <- DT::renderDataTable(dataOrder(), extensions = 'Buttons',
-                                             options = list( dom = 'Blfrtip', buttons = c('copy', 'excel')),
-                                             rownames = FALSE)
-  
-  output$tablemysql2 <- DT::renderDataTable(seqMes(),
-                                            options = list(dom = 'Blfrtip', buttons = c('copy', 'excel')),
-                                            rownames = FALSE)
-  
-  output$Coverage <- DT::renderDataTable(coverage(), extensions = 'Buttons',
-                                         options = list( dom = 'Blfrtip', buttons = c('copy', 'excel')),
-                                         rownames = FALSE)
+  output$tableasignados <- DT::renderDataTable(asignados(),
+                                           options = list(scrollX = TRUE),
+                                           rownames = FALSE, server = FALSE, escape = FALSE, selection = 'none')
   
   output$SqlInput <- DT::renderDataTable(inputData(), extensions = 'Buttons',
-                                         options = list( dom = 'Blfrtip', buttons = c('copy', 'excel')),
-                                         rownames = FALSE, server = FALSE, escape = FALSE, selection = 'none')
+                                         options = list( pageLength = 25, dom = 'Blfrtip', buttons = c('copy', 'excel')),
+                                         rownames = FALSE, server = FALSE, escape = FALSE)
+  
   ############################################################################################################################################################ 
+  
+  shiny::observeEvent(input$Buscar, {
+    shiny::req(!is.null(input$current_id) &
+                 stringr::str_detect(input$current_id,pattern = "delete"))
+    output$SqlInput <- DT::renderDataTable(inputData(), extensions = 'Buttons',
+                                           options = list( pageLength = 25, dom = 'Blfrtip', buttons = c('copy', 'excel')),
+                                           rownames = FALSE, server = FALSE, escape = FALSE)
+  })
+  
+  
   observeEvent(input$Guardar,{
     tryCatch({
-      metadataSendquery(inputSQL()$nt,inputSQL()$of)
-      updateTextInput(session, "Netlab", value = NA)
-      tmp <- input$Oficio 
+      metadataSendquery(toupper(inputSQL()$nt),toupper(inputSQL()$of))
+      tmp <- input$Oficio
+      
       updateTextInput(session, "Oficio", value = NA)
       updateTextInput(session, "Oficio", value = tmp)
+      updateTextInput(session, "Netlab", value = NA)
       output$SqlInput <- DT::renderDataTable(inputData(), extensions = 'Buttons',
-                                               options = list( dom = 'Blfrtip', buttons = c('copy', 'excel')),
-                                               rownames = FALSE, server = FALSE, escape = FALSE, selection = 'none')
+                                             options = list( pageLength = 25, dom = 'Blfrtip', buttons = c('copy', 'excel')),
+                                             rownames = FALSE, server = FALSE, escape = FALSE, selection = 'none')
     },
     
     error = function(e){
@@ -145,7 +123,7 @@ server <- function(input, output, session) {
     
   })
   
-
+  
   
   shiny::observeEvent(input$current_id, {
     shiny::req(!is.null(input$current_id) &
@@ -154,7 +132,7 @@ server <- function(input, output, session) {
     #sql_id <- inputData()[delet_row, ][["NETLAB"]] 
     shiny::modalDialog(
       title = h3("Se borrara permanentemente los datos!!"),
-       div(
+      div(
         shiny::actionButton(inputId = "final_delete",
                             label   = "Confirmar",
                             icon = shiny::icon("trash"),
@@ -162,7 +140,7 @@ server <- function(input, output, session) {
         
       )
     ) %>% shiny::showModal()
-  
+    
   })
   
   shiny::observeEvent(input$final_delete, {
@@ -183,48 +161,48 @@ server <- function(input, output, session) {
     ct2 <- inputData()[edit_row, ][["CT2"]]
     fecha_tm <- inputData()[edit_row, ][["FECHA_TM"]]
     motivo <- inputData()[edit_row, ][["MOTIVO"]]
+    dni <- inputData()[edit_row, ][["DNI_CE"]]
     
     shiny::modalDialog(
-      title = h3(sql_id),
-      column(12,
-      column(6,
-          numericInput(inputId = "ct",
-                       label = "Ingresar CT",
-                       value = ct, 
-                       width = "200px")),
-      column(6,
-            numericInput(inputId = "ct2",
-                         label = "Ingresar CT2",
-                         value = ct2, 
-                         width = "200px")),
+      title = h3("Cod. Netlab :", sql_id),
+      column(12,style = "background-color:#AED6F1;",
+             column(6,
+                    numericInput(inputId = "ct",
+                                 label = "Ingresar CT",
+                                 value = ct, 
+                                 width = "200px")),
+             column(6,
+                    numericInput(inputId = "ct2",
+                                 label = "Ingresar CT2",
+                                 value = ct2, 
+                                 width = "200px")),
       ),
-      
-      column(12, 
-      column(6,
-          disabled(dateInput(inputId = "fecha_tm",
-                    label = "Fecha de toma de muestra",
-                    language = "es", value = fecha_tm , min = "2020-01-01", max = "2022-05-28"
-                    ))),
-      column(6, icon("radiation"), icon("bomb"),"-NULL-", 
-          checkboxInput("checkbox", label = "Fecha Null", value = TRUE)),
-      ),
-      
+      column(12, style = "background-color:#82E0AA;",#82E0AA 
+             column(6,
+                    dateInput(inputId = "fecha_tm",
+                              label = "Fecha de toma de muestra",
+                              language = "es", value = fecha_tm , min = "2020-01-01", max = "2023-05-28"
+                    )),
+             column(6,   
+                    selectInput(inputId = "motivo",
+                                label = "Selecciona un motivo",
+                                choices = c( "VIGILANCIA ALEATORIA",
+                                             "ESPECIAL",
+                                             "MINISEQ REGIONES", 
+                                             "ESPECIAL HOSPITALIZADOS", 
+                                             "VARIANTE","CLINICAS_PRIVADAS",
+                                             "BARRIDO","NULL"),
+                                selected = motivo)),
+      ), 
       column(12,
-          column(3, " "),
-          column(6,   
-          selectInput(inputId = "motivo",
-                      label = "Selecciona un motivo",
-                      choices = c( "VIGILANCIA ALEATORIA",
-                                   "ESPECIAL","BARRIDO",
-                                   "MINISEQ REGIONES", 
-                                   "ESPECIAL HOSPITALIZADOS", 
-                                   "VARIANTE", 
-                                   "CLINICAS_PRIVADAS",
-                                   "BARRIDO","NULL"),
-                      selected = motivo)),
-          column(3, " ")
-          
-      ), easyClose = TRUE,
+             
+             column(6,
+             textInput(inputId = "dni",
+                       label = "Ingresar DNI",
+                       value = dni,
+                       placeholder = "DNI o CE")
+             )
+             ),column(12, h3(" ")), easyClose = TRUE,
       footer = div(
         shiny::actionButton(inputId = "final_edit",
                             label   = "Ingresar",
@@ -237,21 +215,27 @@ server <- function(input, output, session) {
     ) %>% shiny::showModal()
     
   })
-
-  observeEvent(input$checkbox, {
-    if(input$checkbox == FALSE)
-      enable("fecha_tm")
-  })
   
   
   shiny::observeEvent(input$final_edit, {
     shiny::req(!is.null(input$current_id) &
                  stringr::str_detect(input$current_id,pattern = "edit"))
-    edit_row <- which(stringr::str_detect(inputData()$ACCIONES, pattern = paste0("\\b", input$current_id, "\\b") ))
-    
-    sql_id <- inputData()[edit_row, ][["NETLAB"]]
-
-    update_sql(sql_id, ct = input$ct, ct2 = input$ct2, fecha_tm = input$fecha_tm, check = input$checkbox, motivo = input$motivo)
+    tryCatch({
+      edit_row <- which(stringr::str_detect(inputData()$ACCIONES, pattern = paste0("\\b", input$current_id, "\\b") ))
+      sql_id <- inputData()[edit_row, ][["NETLAB"]]
+      update_sql(sql_id, ct = input$ct, ct2 = input$ct2, fecha_tm = input$fecha_tm, motivo = input$motivo, dni = input$dni)
+    },
+    error = function(e){
+      #shiny::removeModal()%>%
+      showModal(
+        modalDialog(
+          title = "Ocurrio un Error!",
+          tags$i("DNI DUPLICADO"),br(),br(),
+          tags$b("Error:"),br(),
+          tags$code(e$message)
+        )
+      )
+    })
   })
   
   shiny::observeEvent(input$dismiss_modal, {
@@ -274,19 +258,59 @@ server <- function(input, output, session) {
     
   })
   
+  observeEvent(input$Asignar,{
+    #req(input$Corrida & input$placa)
+    shiny::modalDialog(
+      title = h3("Verificar los datos antes de Confirmar"),
+      div(
+        shiny::actionButton(inputId = "asignar_conf",
+                            label   = "Confirmar",
+                            icon = shiny::icon("arrow-up"),
+                            class = "btn-danger")
+        
+      )
+    ) %>% shiny::showModal()
+    
+  })
+  
+  shiny::observeEvent(input$asignar_conf, {
+    data <- metadata_sql(input$Soficio)
+    row <- dim(metadataOrder(input$Corrida, input$Placa))[1]
+    enumerar(data$NETLAB, row)
+    metadataAsignar(Corrida = input$Corrida, Placa = input$Placa, Oficio = input$Soficio)
+    shiny::removeModal()
+  })
   
   
-  output$downloadData <- downloadHandler(
-    filename = function() {
-      paste("Download.xlsx")
-    },
-    content = function(file) {
-      write_xlsx(mysql_order(), path = file)
+  observeEvent(input$Reasignar,{
+    #req(input$Corrida & input$placa)
+    shiny::modalDialog(
+      title = h4("La reasignacion de corrida cambiara la numeracion de la corrida y placa actual"),
+      div(
+        shiny::actionButton(inputId = "reasignar_conf",
+                            label   = "Confirmar",
+                            icon = shiny::icon("arrow-up"),
+                            class = "btn-danger")
+        
+      )
+    ) %>% shiny::showModal()
+    
+  })
+  
+  shiny::observeEvent(input$reasignar_conf, {
+    data <- metadataOrder(input$Corrida, input$Placa, TRUE)
+    enumerar(data$NETLAB, 0)
+    #metadataAsignar(Corrida = input$Corrida, Placa = input$Placa)
+    shiny::removeModal()
+  })
+  
+  output$Page <- renderUI({
+    req(credentials()$user_auth)
+    if(is.null(credentials()$user_auth)){
+      return()
     }
-  )
-  
+    UploadData
+  })
   
 }
-  shinyApp(ui = ui, server = server)
-
-# Run the application 
+shinyApp(ui = ui, server = server)
