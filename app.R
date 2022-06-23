@@ -23,7 +23,56 @@ ui <- fluidPage( title = "Administrador",
                                      user_title = "Usuario", pass_title = "Contraseña"),
                  uiOutput("Page") )
 
+#### plot de funciones ####
 
+line_stack_plot <-  function(data, stack){
+  data <- ungroup(data)
+  if(stack == "stack"){
+    plot <- plot_ly(data, x = ~Date, y = ~Frecuency, name = ~Select, groupnorm = "Percentaje", 
+                    text = ~paste("CDC week:", Epi.Week), type = 'scatter', mode ="lines", stackgroup = 'two')
+  }else{
+    plot <- plot_ly(data , x = ~Date, y = ~Frecuency, name = ~Select, groupnorm = "Percentaje", 
+                    text = ~paste("CDC week:", Epi.Week), type = 'scatter', mode ="lines")
+  }
+  
+  return(plot)
+}
+
+hist_plot <- function(data, lineage = "AY.102", ndf = 5){
+  
+  if(is.null(data$Date)){
+    return(plot_ly(data.frame(NULL), type = "scatter", mode ="line"))
+  }else{
+    model <- lm(Frecuency ~ ns(Date, df = ndf), data = data)
+    plot <- plot_ly(data, x = ~Date , y = ~Frecuency, name = lineage, type = 'bar', color = I("light blue"),
+                    hoverinfo = ~Frecuency, text = ~paste("CDC week:", epi_week)) %>%
+      add_trace(x = ~Date, y = ~fitted(model), type = "scatter", mode ="line", color = I("red"))
+    
+    return(plot)
+  }
+}
+
+
+leaflet_plot <- function(data, palette, titleLegend, scale=FALSE, long = FALSE, lat = FALSE, 
+                         var = FALSE, total = FALSE){
+  basemap <- leaflet(data) %>% 
+    addProviderTiles(providers$CartoDB.Positron) %>%
+    addPolygons(stroke = FALSE, smoothFactor = 0.4, fillOpacity = 1, fillColor = ~palette(N),
+                label = ~paste0(Location, ": ", formatC(N, big.mark = ","))) %>%
+    addLegend(pal = palette, values = ~N, title = titleLegend, opacity = 1.0) 
+  
+  if(!isFALSE(lat) & !isFALSE(long) & !isFALSE(var) & !isFALSE(total)){
+    basemap <- basemap %>% addMinicharts(long, lat ,type = "pie", chartdata = var, opacity = 0.8, 
+                                         colorPalette = brewer.pal(n = ncol(var), name = "Paired"), 
+                                         width = 50 * sqrt(total) / sqrt(max(total)), transitionTime = 0)
+    
+    return(basemap)
+  }
+  
+  return(basemap)
+}
+
+######## 
 server <- function(input, output, session) {
   
   credentials <- shinyauthr::loginServer(
@@ -71,6 +120,93 @@ server <- function(input, output, session) {
     data
   })
   
+  ##### graph data input
+  
+  upload <- reactive({
+    if(is.null(input$UploadC)){
+      return(NULL)
+    }
+    metadata <- read.table(file = input$UploadC$datapath, sep = input$separator ,header = TRUE)
+    return(metadata)
+  })
+  
+  geojson <- reactive({
+    
+    url <- "https://raw.githubusercontent.com/FranciscoAscue/geojason-peru/master/peru_departamental.geojson"
+    map <- geojsonsf::geojson_sf(geojson = url)
+    map$Location <- toupper(map$Location)
+    return(map)
+  })
+  
+  # metadata upload (GISAID metadata / custom metadata) 
+  meta <- reactive({
+    metadata <- read.csv("/home/fascue/Documents/Git/metadata_shiny.csv", header = TRUE)
+    metadata$date <- as.Date(metadata$date)
+    metadata$Date <- as.Date(metadata$Date)
+    colnames(metadata) <- c("CS","strain","gisaid","date", "location", "host","gender","age", "VAC","lineage", "VOC.VOI","epi_week","epi_year","Date")
+    metadata
+    return(metadata)
+  })
+  
+  # epidemio metadata
+  
+  epidem_data <- reactive({
+    emetadata <- read.csv("/home/fascue/Documents/Git/dead.csv")
+    emetadata$date <- as.Date(emetadata$date)
+    return(emetadata)
+  })
+  
+  
+  
+  var_datamap <- reactive({
+    
+    datamap <- variant_distribution(map = geojson(), epidem = epidem_data(), 
+                                    metadata = meta(), input$Daterange[1], input$Daterange[2],input$switch)
+    
+    return( list( df = datamap$df, pal = datamap$pal, long = datamap$long, lat = datamap$lat, 
+                  var = datamap$var, total = datamap$total))
+  })
+  
+  sampling_datamap <- reactive({
+    #req(input$Variant)
+    data_map <- sampling_distribution(map = geojson(), metadata = meta(), mindate = input$Daterange[1], 
+                                      maxdate = input$Daterange[2], input$Variant, input$Escala)
+    
+    return(list(df = data_map$df, pal = data_map$pal))
+    
+  })
+  
+  lineage_var_data <- reactive({
+    metadata <- as.data.frame(meta())
+    metadata <- stackvariant(metadata,  input$lineageDate[1], input$lineageDate[2], 
+                             input$ngenomes, input$Varline)
+    
+  })
+  
+  hist_data <- reactive({
+    
+    metadata <- as.data.frame(meta())
+    metadata$date <- as.Date(metadata$date)
+    data_lineage <- freq_voc_voi(metadata, input$lineage)
+    data_lineage
+  })
+  
+  heatmap_data <- reactive({
+    cuadro_motivo <- matrix_distribution(metadata = meta(), type = input$type, 
+                                         upload = upload(), prov = input$prov)
+    cuadro_motivo
+  })
+  
+  merge_dataF <- reactive({
+
+    df_a <- metadata("seqcoviddb", "metadata", input$FCorrida)
+    df_b <- metadata("SARS_GENOMES", "nextrain2gisaid", input$FCorrida)
+    df_b1 <- df_b[,c("NETLAB","LINAGES","VOC_VOI","COVERAGE","N_PERCENTAGE")]
+    
+    datamerge <- merge(x = df_a, y = df_b1, by = "NETLAB", all = TRUE)
+    as.data.frame(datamerge)
+    return(datamerge)
+  })
   
   ############################################################################################################################################################
   
@@ -86,7 +222,65 @@ server <- function(input, output, session) {
                                          options = list( pageLength = 25, dom = 'Blfrtip', buttons = c('copy', 'excel')),
                                          rownames = FALSE, server = FALSE, escape = FALSE)
   
+  output$matrix <- DT::renderDataTable(heatmap_data(), extensions = 'Buttons',
+                                         options = list( scrollX = TRUE, pageLength = 50, dom = 'Blfrtip', buttons = c('copy', 'excel')),
+                                         rownames = TRUE, server = FALSE, escape = FALSE)
+  
+  output$Fmatrix <- DT::renderDataTable(merge_dataF(), extensions = 'Buttons',
+                                       options = list( scrollX = TRUE, pageLength = 50, dom = 'Blfrtip', buttons = c('copy', 'excel')),
+                                       rownames = TRUE, server = FALSE, escape = FALSE)
+  
+  
+  output$map <- renderLeaflet({
+    basemap <- leaflet_plot(data = sampling_datamap()$df, palette = sampling_datamap()$pal, 
+                            titleLegend = "Nº\nGenomes" )   
+    
+  })
+  
+  output$leaflet_map <- renderLeaflet({
+    basemap <- leaflet_plot(data = var_datamap()$df, palette = var_datamap()$pal,
+                            long = var_datamap()$long, lat = var_datamap()$lat, 
+                            titleLegend = "Mortality rate x10⁵", var = var_datamap()$var,
+                            total = var_datamap()$total)
+  })
+  
+  
+  output$lineplot <- renderPlotly({ 
+    line_stack_plot(lineage_var_data(), input$stack)
+  })
+  
+  output$hist <- renderPlotly({ 
+    hist_plot(hist_data(), lineage = input$lineage) 
+  })
+  
   ############################################################################################################################################################ 
+  
+  output$selectVariants <- renderUI({
+    # if(is.null(input$metadata))
+    #   return()
+    
+    Vocvoi <- c("Total")
+    Vocvoi <- append(Vocvoi, unique(meta()$VOC.VOI))
+    
+    selectInput(inputId = "Variant", 
+                label = "Select a variant (VOC-VOI)", 
+                choices = as.list(Vocvoi),
+                selected = "Total")
+  })
+  
+  output$selectLineages <- renderUI({
+    # if(is.null(input$metadata))
+    #   return()
+    # 
+    selectInput(inputId = "Lineages", 
+                label = "Select a lineage", 
+                choices = as.list(unique(meta()$lineage)),
+                selected = NA)
+    
+  })
+  
+  #################################################################################################################################################################
+  
   
   shiny::observeEvent(input$Buscar, {
     shiny::req(!is.null(input$current_id) &
@@ -302,6 +496,34 @@ server <- function(input, output, session) {
     enumerar(data$NETLAB, 0)
     #metadataAsignar(Corrida = input$Corrida, Placa = input$Placa)
     shiny::removeModal()
+  })
+  
+  output$Supdate <- renderUI({
+    req(input$type)
+    if(input$type == "SemanaEpidemio"){
+      return()
+    }
+    column(12,
+    fileInput(inputId = "UploadC", 
+              h4("Upload table"), accept='.csv'),
+    
+    radioButtons("separator", "Select separator",
+                 choices = list("Tab" = "\t", "Comma" = ",", "Semicolon"=";"), selected = ";"))
+
+  })
+  
+  
+  output$Sprov <- renderUI({
+    req(input$type)
+    if(input$type == "SemanaEpidemio"){
+      return()
+    }
+    
+    radioButtons("prov", "Seleccionar",
+                 choices = list("Region" = "Region", 
+                                "Provincia" = "Provincia"),
+                 selected = "Region")
+    
   })
   
   output$Page <- renderUI({

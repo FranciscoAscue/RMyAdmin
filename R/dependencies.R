@@ -23,9 +23,10 @@ missingPackages <- function(pkg){
 }
 ################################################################################
 
-dependencies <- c("shiny","shinycssloaders","pheatmap","plotly","fossil",
-                  "remotes","dplyr","DT","htmlwidgets","viridisLite","viridis",
-                  "RColorBrewer")
+
+dependencies <- c("shiny","shinycssloaders","shinythemes","plotly","fossil", "remotes","dplyr",
+                  "rgdal","sp","sf","geojsonsf","DT","htmlwidgets", "leaflet","leaflet.minicharts",
+                  "viridisLite","viridis", "RColorBrewer","stringr","tidyverse","ggplot2","splitstackshape")
 
 ################################################################################
 # Package R dependencies
@@ -34,11 +35,15 @@ for(i in dependencies){
   missingPackages(i)
   library(i, character.only = TRUE)
 }
+
+library(rlang)
 library(splines)
 library(writexl)
 library(shinythemes)
 library(stringr)
 library(readr)
 library(shinyjs)
+library(epical)
+library(readxl)
 ################################################################################
 
