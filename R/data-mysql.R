@@ -36,7 +36,7 @@ variant_distribution <- function(map, metadata, epidem,  mindate, maxdate, switc
   epidem_freq$Location <- toupper(epidem_freq$Location)
   Merge_data <- inner_join(map,epidem_freq, by = 'Location' )
   Merge_data$N <- (Merge_data$N/Merge_data$Population)*100000
-
+  
   
   pal <- colorNumeric(  palette = "Greys", NULL)
   long <- cities$X
@@ -92,21 +92,23 @@ stackvariant <- function(data, mindate, maxdate, ngenomes, varline){
 }
 
 
-matrix_distribution <- function(metadata, type, upload, prov){
+matrix_distribution <- function(metadata, type, upload, prov, motivo){
   
   if( type == "SemanaEpidemio"){
-      test <- metadata %>% dplyr::group_by(Date, epi_week, lineage) %>% dplyr::summarise( n = n()) %>%
-        dplyr::mutate(percentage = n / sum(n))
-      new <- test[,c("epi_week","lineage","n")]
-      names(new) <- c("SEMANA", "lineage", "abundance")
-      new <- as.data.frame(new)
-      cuadro_motivo <- create.matrix(new, tax.name = "SEMANA", 
-                                     locality = "lineage", abund.col = "abundance", abund = TRUE)
+    test <- metadata %>% dplyr::group_by(Date, epi_week, lineage) %>% dplyr::summarise( n = n()) %>%
+      dplyr::mutate(percentage = n / sum(n))
+    new <- test[,c("epi_week","lineage","n")]
+    names(new) <- c("SEMANA", "lineage", "abundance")
+    new <- as.data.frame(new)
+    cuadro_motivo <- create.matrix(new, tax.name = "SEMANA", 
+                                   locality = "lineage", abund.col = "abundance", abund = TRUE)
   }else{
-      
+    
     if(!is.null(upload)){
       
+      
       if( prov == "Region"){
+        if(motivo != "Total"){upload <- upload %>% dplyr::filter(MOTIVO == motivo)}
         test <- upload %>% dplyr::group_by(REGION, LINAGES) %>% dplyr::summarise( n = n())
         names(test) <- c("provincia", "lineage", "Freq")
         test <- as.data.frame(test)
@@ -117,6 +119,7 @@ matrix_distribution <- function(metadata, type, upload, prov){
         cuadro_motivo = as.data.frame(cuadro_motivo)
         
       }else{
+        if(motivo != "Total"){upload <- upload %>% dplyr::filter(MOTIVO == motivo)}
         test <- upload %>% dplyr::group_by(PROVINCIA, LINAGES) %>% dplyr::summarise( n = n())
         names(test) <- c("region", "lineage", "Freq")
         test <- as.data.frame(test)
@@ -128,10 +131,11 @@ matrix_distribution <- function(metadata, type, upload, prov){
         
       }
       
+      
     }else{
       cuadro_motivo <- matrix(0,10,10)
     }
-      
+    
   }
   
   return(cuadro_motivo)
@@ -140,14 +144,14 @@ matrix_distribution <- function(metadata, type, upload, prov){
 
 freq_voc_voi <- function(data, lin){
   
-  if(is.element(lin, unique(data$lineage))){
-    
-    data <- data %>% filter(lineage == lin)
+  #if(is.element(lin, unique(data$lineage))){
+    dd1 = strsplit(lin, split = ",")
+    data <- data %>% filter(lineage == dd1[[1]])
     data <- data %>% dplyr::group_by(Date, epi_week) %>% dplyr::summarise(Frecuency = n())
     return(data)
-  } else{
-    return(data.frame(Date = NULL,  epi_week = NULL,  Frecuency = NULL))
-  }
+  #} else{
+   # return(data.frame(Date = NULL,  epi_week = NULL,  Frecuency = NULL))
+  #}
   
 }
 
@@ -179,7 +183,7 @@ metadata_sql <- function(oficio = NULL){
   
   
   query = paste0("SELECT NUMERACION_PLACA,NETLAB,OFICIO,DNI_CE,CORRIDA,PLACA FROM `metadata` WHERE `OFICIO` LIKE '",
-                 oficio,"' AND `CORRIDA` IS NULL AND `DNI_CE` IS NOT NULL ORDER BY `metadata`.`FECHA_INGRESO_BASE` ASC;")
+                 oficio,"' AND `CORRIDA` IS NULL AND `DNI_CE` IS NOT NULL AND `PLACA` IS NULL AND `CORRIDA` IS NULL ORDER BY `metadata`.`FECHA_INGRESO_BASE` ASC;")
   
   dbSendQuery(con, "SET NAMES utf8mb4;")
   on.exit(dbDisconnect(con))
@@ -272,7 +276,7 @@ update_sql <- function(sql_id, ct, ct2, fecha_tm, motivo, dni){
     fecha_tm <- 'NULL'
   }
   
-  if(is.null(dni) | is.na(dni)){
+  if(is.null(dni) | is.na(dni) | nchar(dni) == 0){
     dni <- 'NULL'
   }
   con <- dbConnect(MySQL(),
@@ -325,7 +329,7 @@ metadataAsignar <- function(Corrida, Placa, Oficio){
                    dbname = 'seqcoviddb')
   query <- paste0("UPDATE `metadata` SET `CORRIDA` = '",
                   Corrida,"', `PLACA` = '",Placa,"' WHERE `OFICIO` = '",Oficio,
-                  "' AND `DNI_CE` IS NOT NULL ORDER BY `metadata`.`FECHA_INGRESO_BASE` ASC;")
+                  "' AND `DNI_CE` IS NOT NULL AND `PLACA` IS NULL AND `CORRIDA` IS NULL ORDER BY `metadata`.`FECHA_INGRESO_BASE` ASC;")
   query <- gsub("'NULL'", "NULL", query, fixed = TRUE)
   on.exit(dbDisconnect(con))
   rs = dbSendQuery(con, query);

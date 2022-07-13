@@ -77,21 +77,32 @@ Reports <- tabPanel("REPORTES DE CORRIDA",
                                                                     choices = list("SemanaEpidemio" = "SemanaEpidemio", "Corrida" = "Corrida"),
                                                                     selected = "SemanaEpidemio"),
                                                         uiOutput("Supdate"),
-                                                        uiOutput("Sprov")
+                                                        uiOutput("Sprov"),
+                                                        uiOutput("motiv")
                                                        ),
                                                 
                                                 column(10,
-                                                       DT::dataTableOutput("matrix")
-                                                ))
+                                                       DT::dataTableOutput("matrix"),
+                                                       uiOutput("disperO")
+                                                       ))
                                        ),
                                        tabPanel("Graficas por Variante",
                                                 
                                                 column(12, 
                                                        column(6, shinycssloaders::withSpinner(plotlyOutput("lineplot"))),
-                                                       column(2, textInput(inputId = "lineage",
+                                                       column(2, 
+                                                              
+                                                              column(7,
+                                                              textInput(inputId = "lineage",
                                                                            label = "Write a linage",
                                                                            value = "AY.117"),
-                                                              
+                                                              ),
+                                                              column(4,
+                                                              shiny::actionButton(inputId = "plothist",
+                                                                                  label   = "Plot",
+                                                                                  icon = shiny::icon("arrow-right"),
+                                                                                  class = "btn-info"),
+                                                              ),
                                                               numericInput("ngenomes", label = "Minimun genomes", min = 1, 
                                                                            max = 30, value = 1 ),
                                                               
@@ -109,7 +120,15 @@ Reports <- tabPanel("REPORTES DE CORRIDA",
                                                                                   selected = "VOC.VOI")),
                                                        ),
                                                        column(4, shinycssloaders::withSpinner(plotlyOutput("hist")))
-                                                )
+                                                ),
+                                                
+                                                
+                                                column(12, 
+                                                       
+                                                       column(6, shinycssloaders::withSpinner(plotlyOutput("histSep"))),
+                                                       column(6, shinycssloaders::withSpinner(plotlyOutput("histSep2"))),
+                                                       
+                                                       )
                                                 
                                        ),
                                        

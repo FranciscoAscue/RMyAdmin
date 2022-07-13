@@ -127,6 +127,7 @@ server <- function(input, output, session) {
       return(NULL)
     }
     metadata <- read.table(file = input$UploadC$datapath, sep = input$separator ,header = TRUE)
+    metadata$FECHA_TM <- as.Date(metadata$FECHA_TM)
     return(metadata)
   })
   
@@ -185,15 +186,26 @@ server <- function(input, output, session) {
   
   hist_data <- reactive({
     
+    req(input$plothist)
     metadata <- as.data.frame(meta())
     metadata$date <- as.Date(metadata$date)
     data_lineage <- freq_voc_voi(metadata, input$lineage)
     data_lineage
   })
   
+  
+  hist_data_p <- reactive({
+    req(input$plothist)
+    metadata <- as.data.frame(meta())
+    dd1 = strsplit(input$lineage, split = ",")
+    metadata <- metadata %>% dplyr::filter(lineage ==dd1[[1]])
+    metadata <- stackvariant(metadata, "2020-01-01", "2022-12-12", 1, "Lineages")
+    
+  })
+  
   heatmap_data <- reactive({
     cuadro_motivo <- matrix_distribution(metadata = meta(), type = input$type, 
-                                         upload = upload(), prov = input$prov)
+                                         upload = upload(), prov = input$prov, motivo = input$motivo)
     cuadro_motivo
   })
   
@@ -202,13 +214,24 @@ server <- function(input, output, session) {
     df_a <- metadata("seqcoviddb", "metadata", input$FCorrida)
     df_b <- metadata("SARS_GENOMES", "nextrain2gisaid", input$FCorrida)
     df_b1 <- df_b[,c("NETLAB","LINAGES","VOC_VOI","COVERAGE","N_PERCENTAGE")]
-    
     datamerge <- merge(x = df_a, y = df_b1, by = "NETLAB", all = TRUE)
     as.data.frame(datamerge)
-    return(datamerge)
+    DD <- datamerge[order(datamerge$NUMERACION_PLACA),] %>% arrange(PLACA)
+    DD <- DD %>% mutate_if(is.character, trimws)
+    return(DD)
   })
   
+ 
+  
   ############################################################################################################################################################
+  
+  output$histSep <- renderPlotly({
+    plot_ly(hist_data_p(), labels = ~Select, values = ~N, type = 'pie', textposition = 'inside', textinfo = 'label+percent')
+  })
+    
+  output$histSep2 <- renderPlotly({
+    line_stack_plot(hist_data_p(), input$stack)
+  })
   
   output$tablemysql <- DT::renderDataTable(mysql_explore(),
                                            options = list(scrollX = TRUE),
@@ -223,7 +246,7 @@ server <- function(input, output, session) {
                                          rownames = FALSE, server = FALSE, escape = FALSE)
   
   output$matrix <- DT::renderDataTable(heatmap_data(), extensions = 'Buttons',
-                                         options = list( scrollX = TRUE, pageLength = 50, dom = 'Blfrtip', buttons = c('copy', 'excel')),
+                                         options = list( scrollX = TRUE, pageLength = 10, dom = 'Blfrtip', buttons = c('copy', 'excel')),
                                          rownames = TRUE, server = FALSE, escape = FALSE)
   
   output$Fmatrix <- DT::renderDataTable(merge_dataF(), extensions = 'Buttons',
@@ -237,6 +260,7 @@ server <- function(input, output, session) {
     
   })
   
+  
   output$leaflet_map <- renderLeaflet({
     basemap <- leaflet_plot(data = var_datamap()$df, palette = var_datamap()$pal,
                             long = var_datamap()$long, lat = var_datamap()$lat, 
@@ -245,11 +269,22 @@ server <- function(input, output, session) {
   })
   
   
+  output$disper <- renderPlotly({ 
+    req(input$UploadC)
+    plot_ly(data = upload(), x= ~FECHA_TM, y = ~CT, type = 'scatter', name = ~MOTIVO)
+  })
+  
   output$lineplot <- renderPlotly({ 
     line_stack_plot(lineage_var_data(), input$stack)
   })
   
+  
   output$hist <- renderPlotly({ 
+    hist_plot(hist_data(), lineage = input$lineage) 
+  })
+  
+  
+  output$hist_sep <- renderPlotly({ 
     hist_plot(hist_data(), lineage = input$lineage) 
   })
   
@@ -523,6 +558,31 @@ server <- function(input, output, session) {
                  choices = list("Region" = "Region", 
                                 "Provincia" = "Provincia"),
                  selected = "Region")
+    
+  })
+  
+  output$disperO <- renderUI({
+    req(input$type)
+    if(input$type == "SemanaEpidemio"){
+      return()
+    }
+    plotlyOutput("disper")
+
+  })
+  
+  output$motiv <- renderUI({
+    req(input$type)
+    if(input$type == "SemanaEpidemio"){
+      return()
+    }
+    
+    motiv <- c("Total")
+    motiv <- append(motiv, unique(upload()$MOTIVO))
+    
+    selectInput(inputId = "motivo", 
+                label = "Seleccione motivo", 
+                choices = motiv
+                )
     
   })
   
